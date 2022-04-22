@@ -23,4 +23,4 @@ function LoveFile_Meta:close()
 end
 
 -- return meta and constructor
-return LoveFile_Meta, LoveFile
+return { LoveFile_Meta, LoveFile }

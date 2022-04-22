@@ -3,8 +3,11 @@
 -- require class constructor
 local class = require "class"
 
-local LoveKit_Meta, LoveKit = class(function (self, sources)
-    self.sources = sources
+local LoveKit_Meta, LoveKit = class(function (self, files)
+    self.sources = {}
+    for i,f in ipairs(files) do
+        table.insert(self.sources, love.audio.newSource(f, "static"))
+    end
 end)
 
 function LoveKit_Meta:play(note)
@@ -15,4 +18,4 @@ function LoveKit_Meta:play(note)
 end
 
 -- return meta and constructor
-return LoveKit_Meta, LoveKit
+return { LoveKit_Meta, LoveKit }

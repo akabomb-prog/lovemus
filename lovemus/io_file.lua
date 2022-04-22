@@ -26,4 +26,4 @@ function IOFile_Meta:close()
 end
 
 -- return meta and constructor
-return IOFile_Meta, IOFile
+return { IOFile_Meta, IOFile }

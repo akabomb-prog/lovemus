@@ -7,11 +7,12 @@ local class = require "class"
 local util = require "lovemus.util"
 
 -- get what we need as locals
-local rep = string.rep
+local byte, rep = string.byte, string.rep
+local t_unpack = unpack
 local unpack = love.data.unpack
 local unpackRest, slice = util.unpackRest, util.slice
 
-local Song_Meta, Song = class(function (file)
+local Song_Meta, Song = class(function (self, file)
     -- read file
     local contents, size = file:read()
     if contents then
@@ -39,11 +40,11 @@ Song_Meta.dataInfo = {
     bpm = 120,
 
     instruments = {
-        {
-            sampleName = "music/samples/default.wav",
-            transposition = 0,
-            volume = 0.5
-        }
+    {
+        sampleName = "music/samples/default.wav",
+        transposition = 0,
+        volume = 0.5
+    }
     }
 }
 Song_Meta.songData = {
@@ -68,39 +69,46 @@ Song_Meta.isValid = false
 
 --- Read a specified amount of bytes from the data.
 function Song_Meta:readBytes(size)
-    local t, rest = unpackRest(self.data, rep('B', size))
+    if #self.data == 0 then return end
+    local t, rest = unpackRest(rep('B', size), self.data)
     self.data = rest
     return t
 end
 
 --- Read a C string.
 function Song_Meta:readCString(size)
-    local t, rest = unpackRest(self.data, 'c' .. size)
+    if #self.data == 0 then return end
+    local t, rest = unpackRest('c' .. size, self.data)
     self.data = rest
     return t[1]
 end
 
 --- Read a single byte from the data.
 function Song_Meta:readByte()
-    local t, rest = unpackRest(self.data, 'B')
+    if #self.data == 0 then return end
+    local t, rest = unpackRest('B', self.data)
     self.data = rest
     return t[1]
 end
 
 --- Peek a single byte.
 function Song_Meta:peekByte(next)
-    return self.data:sub(next, next)
+    if #self.data == 0 then return end
+    next = next or 1
+    return byte(self.data:sub(next, next))
 end
 
 --- Read a zero-terminated string.
 function Song_Meta:readString()
-    local t, rest = unpackRest(self.data, 'z')
+    if #self.data == 0 then return end
+    local t, rest = unpackRest('z', self.data)
     self.data = rest
     return t[1]
 end
 
 --- Read byte-float (centered byte)
 function Song_Meta:readBFloat()
+    if #self.data == 0 then return end
     local byte = self:readByte()
     if byte > 128 then
         return (byte - 128) / 127
@@ -143,22 +151,25 @@ function Song_Meta:load()
 
         if section == 1 then
             -- author info section
-            while not self:peekByte() == 255 do
+
+            while self:peekByte() ~= 255 do
                 -- while we're not on course to another section
 
                 -- get title and author
                 local which = self:readByte()
+
                 if which == 1 then
                     self.authorInfo.title = self:readString()
                 elseif which == 2 then
                     self.authorInfo.author = self:readString()
                 end
+                love.timer.sleep(1)
             end
         elseif section == 2 then
             -- data info section
             local totalInstruments = 0
 
-            while not self:peekByte() == 255 do
+            while self:peekByte() ~= 255 do
                 -- get which variable we're getting:
                 -- 1. sample count
                 -- 2. pattern length
@@ -231,13 +242,30 @@ function Song_Meta:load()
     -- close file
     self.file:close()
 
+    -- rebuild instruments
+    self:rebuildInstruments()
+
     -- call :loaded()
     if self.loaded then self:loaded() end
 end
 
+-- get LoveInstrument
+local _, LoveInstrument = t_unpack(require "lovemus.love_instrument")
+
+--- Rebuild LoveInstruments.
+function Song_Meta:rebuildInstruments()
+    self.instruments = {}
+    for i,instInfo in ipairs(self.dataInfo.instruments) do
+        local inst = LoveInstrument(instInfo.sampleName)
+        inst:transpose(instInfo.transposition)
+        inst:vol(instInfo.volume)
+        table.insert(self.instruments, inst)
+    end
+end
+
 --- This function is called when the song is loaded successfully.
-function Song_Meta:onLoad()
-    print("song " .. self.file:getFilename() .. " loaded!")
+function Song_Meta:loaded()
+    print("song " .. self.authorInfo.title .. " loaded!")
 end
 
 --- Progress the Song.
@@ -274,4 +302,4 @@ function Song_Meta:progress()
 end
 
 -- return meta and constructor
-return Song_Meta, Song
+return { Song_Meta, Song }

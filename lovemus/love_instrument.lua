@@ -7,10 +7,12 @@ local class = require "class"
 local util = require "lovemus.util"
 
 -- get what we need as locals
+local newSource = love.audio.newSource
 local pitch = util.pitch
 
-local LoveInstrument_Meta, LoveInstrument = class(function (self, source)
-    self.source = source
+local LoveInstrument_Meta, LoveInstrument = class(function (self, filename)
+    self.filename = filename
+    self.source = newSource(filename, "static")
 end)
 
 LoveInstrument_Meta.transposition = 0
@@ -38,4 +40,4 @@ function LoveInstrument_Meta:transpose(newTransposition)
 end
 
 -- return meta and constructor
-return LoveInstrument_Meta, LoveInstrument
+return { LoveInstrument_Meta, LoveInstrument }
