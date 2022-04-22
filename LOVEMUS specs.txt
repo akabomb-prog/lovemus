@@ -1,0 +1,88 @@
+LOVEMUS music tracker format specifications
+
+Preview hex, JavaScript: (number).toString(16)
+To hex array, JavaScript: function toHexArray(array, delim = ' ') { var str = array[0].toString(16).padStart(2, '0'); for (var i = 1; i < array.length; i++) { str += delim + array[i].toString(16).padStart(2, '0'); } return str; }
+Centered byte to float, JavaScript: function centeredByte(b) { if (b > 128) { return (b - 128) / 127; } else if (b < 128) { return ((b - 1) / 127) - 1; } else return 0; }
+Create array of notes, JavaScript: function createFullNotes(arr, velocity, pan)
+{
+    var outarr = [];
+    for (var i = 0; i < arr.length; i++)
+    {
+        var j = i * 3;
+        outarr[j] = arr[i];
+        outarr[j + 1] = (arr[i] !== 0) ? velocity : 0;
+        outarr[j + 2] = pan;
+    }
+    return outarr;
+}
+Transpose array of notes, JavaScript: function transpose(arr, amount)
+{
+    var outarr = [];
+    for (var i = 0; i < arr.length; i++)
+    {
+        if (i % 3 == 0) outarr[i] = arr[i] + amount;
+        else outarr[i] = arr[i];
+    }
+    return outarr;
+}
+
+
+1. File
+    1. LOVEMUS[0x7F]
+    2. 0xFF01 (first section: author info)
+        1. 0x01 (first value: song title)
+            null-terminated string: TITLE HERE!
+        2. 0x02 (second value: song author)
+            null-terminated string: AUTHOR HERE!
+    3. 0xFF02 (second section: data info)
+        1. 0x01 (first value: sample count)
+            unsigned byte: 0x03 (3 samples)
+        
+        2. 0x02 (second value: pattern length)
+            unsigned byte: 0x10 (16 steps)
+
+        3. 0x03 (third value: song BPM)
+            unsigned byte: 0x64 (100 BPM, 0x78 for 120 BPM)
+
+        4. 0x04 (fourth value: global fine tuning)
+            centered byte: 0x80 (0)
+
+        - 0x05 and onwards to 0xff is an array called "instruments"
+
+        2. 0x05 (instruments[0])
+            1. 0x81 (first value in value (0b10000000 | 1): file path)
+                null-terminated string: music/samples/bass_single.wav
+            2. 0x82 (second value in value: transposition)
+                centered byte: 0x80 (0)
+            2. 0x83 (third value in value: volume)
+                unsigned byte: 0xFF (255)
+        
+        3. 0x06 (instruments[1])
+            1. 0x81 (file path)
+                null-terminated string: music/samples/squ_single.wav
+            2. 0x82 (transposition)
+                centered byte: 0x8c (+12)
+            3. 0x83 (volume)
+                unsigned byte: 
+    4. 0xFF03 (third section: data)
+        - Base note: 72 (0x48)
+
+        1. no bytes (pattern 0)
+            1. no bytes (pattern for instruments[0])
+                byte array: 48 ff 80 48 ff 80 52 ff 80 54 ff 80  48 ff 80 48 ff 80 52 ff 80 54 ff 80  48 ff 80 48 ff 80 52 ff 80 54 ff 80  48 ff 80 48 ff 80 52 ff 80 54 ff 80
+
+                - 4-note sequence: 48 ff  80   48 ff  80   52 ff  80   54 ff  80
+                -                 (72 255 128  72 255 128  82 255 128  84 255 128)
+                - Each note is a 3-byte value: note-velocity-panning
+                    note: unsigned byte, midi note number.
+                    velocity: unsigned byte, note velocity. means "don't play at all" if 0
+                    panning: signed byte, note panning.
+            2. no bytes (pattern for instruments[1])
+                byte array: 48 ff 80 54 ff 80 48 ff 80 56 ff 80 48 ff 80 57 ff 80 48 ff 80 56 ff 80  48 ff 80 54 ff 80 48 ff 80 56 ff 80 48 ff 80 57 ff 80 48 ff 80 56 ff 80
+        
+        2. no bytes (pattern 1)
+            1. no bytes (pattern for instruments[0])
+                byte array: 48 ff 80 48 ff 80 52 ff 80 54 ff 80  48 ff 80 48 ff 80 52 ff 80 54 ff 80  48 ff 80 48 ff 80 52 ff 80 54 ff 80  48 ff 80 48 ff 80 52 ff 80 54 ff 80
+            2. no bytes (pattern for instruments[1])
+                byte array: 48 ff 80 54 ff 80 48 ff 80 56 ff 80 48 ff 80 57 ff 80 48 ff 80 56 ff 80  48 ff 80 54 ff 80 48 ff 80 56 ff 80 48 ff 80 57 ff 80 48 ff 80 56 ff 80
+
