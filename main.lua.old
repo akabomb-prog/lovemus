@@ -1,0 +1,142 @@
+function sinceStart()
+    return love.timer.getTime() - start
+end
+
+local function tableMerge(t1, t2)
+    for k,v in pairs(t2) do
+        if type(v) == "table" then
+            if type(t1[k] or false) == "table" then
+                tableMerge(t1[k] or {}, t2[k] or {})
+            else
+                t1[k] = v
+            end
+        else
+            t1[k] = v
+        end
+    end
+    return t1
+end
+
+-- Called at the start of the program.
+function love.load()
+    lovemusic = require("lib.lovemusic")
+    timing = require("lib.timing")
+    maths = require("lib.maths")
+
+    start = love.timer.getTime()
+
+    seqPos = 0
+    local perc = { 0, -1, 2, 0,  1, 2, 0, 2,  0, -1, 2, 0,  1, 2, 0, 1 }
+    click = love.audio.newSource("music/samples/skippy1.wav", "static")
+    tick = love.audio.newSource("music/samples/tick1.wav", "static")
+    tick2 = love.audio.newSource("music/samples/tick1.wav", "static")
+    tick2:setPitch(3)
+    tick2:setVolume(0.75)
+    kit = lovemusic.LoveKit:new({ tick, click, tick2 })
+    bd = love.audio.newSource("music/samples/bd.wav", "static")
+    ch = love.audio.newSource("music/samples/ch.wav", "static")
+    sd = love.audio.newSource("music/samples/sd.wav", "static")
+    kit2 = lovemusic.LoveKit:new({ bd, sd, ch })
+
+    -- file = lovemusic.LoveFile:new(love.filesystem.newFile("thingamajig.mus"))
+    file = lovemusic.IOFile:new("thingamajig.mus")
+    song = lovemusic.Song:new(file)
+    song.onLoad = function ()
+        -- song loaded, initialize instruments
+        for i,inst in ipairs(song.dataInfo.instruments) do
+            local sample = inst.sampleName
+            local transposition = inst.transposition
+            local volume = inst.volume
+            song.dataInfo.instruments[i] = tableMerge(song.dataInfo.instruments[i], lovemusic.LoveInstrument:new(love.audio.newSource(sample, 'static')))
+            song.dataInfo.instruments[i]:transpose(transposition)
+            song.dataInfo.instruments[i]:vol(volume)
+        end
+
+        print(song.authorInfo.title .. " by " .. song.authorInfo.author)
+    end
+    if song:valid() then
+        song:load()
+    end
+
+    bd = love.audio.newSource("music/samples/bd.wav", "static")
+
+    mainTimer = timing.add("main", lovemusic.bpmToTimer(song.dataInfo.bpm) * 2, sinceStart)
+    mainTimer.tock = function ()
+        if not doPlay then return end
+
+        song:progress()
+        kit:play(perc[seqPos + 1])
+        kit2:play(perc[seqPos + 1])
+        seqPos = (seqPos + 1) % 16
+    end
+
+    other = 0
+
+    love.window.setVSync(0)
+
+    songNameText = song.authorInfo.title .. " by " .. song.authorInfo.author .. " (" .. song.file:name() .. ')'
+    doPlay = false
+
+    width, height = love.graphics.getPixelDimensions()
+
+    button1 = {
+        pressed = false
+    }
+end
+
+local function pointCollides(xp, yp, x1, y1, x2, y2)
+    local isInX = (xp >= x1) and (xp <= x2)
+    local isInY = (yp >= y1) and (yp <= y2)
+
+    return isInX and isInY
+end
+
+local function drawTextLine(text, line)
+    love.graphics.print(text, 16, 16 + 20 * line)
+end
+
+-- Called each frame.
+function love.update(dt)
+end
+
+function toggleSong()
+    doPlay = not doPlay
+end
+
+function love.mousepressed(x, y, button, istouch, presses)
+    if not song:valid() then return end
+    if pointCollides(x, y, 0, height * 0.5, width, height) then
+        button1.pressed = true
+    end
+end
+
+function love.mousereleased(x, y, button, istouch, presses)
+    if not song:valid() then return end
+    if pointCollides(x, y, 0, height * 0.5, width, height) then
+        button1.pressed = false
+        toggleSong()
+    end
+end
+
+-- Called each frame after love.update(dt), if love.graphics.isActive() is true.
+function love.draw()
+    timing.tickAll()
+    drawTextLine(songNameText, 0)
+    if not song:valid() then return end
+    drawTextLine("Total instruments: " .. song.dataInfo.instruments[0], 2)
+    drawTextLine("Song position: " .. (song.songPosition - 1) .. '/' .. (song.songLength - 1), 3)
+
+    local r, g, b, a = love.graphics.getColor()
+
+    local br = 1
+    local bg = 0
+    local bb = 0
+    if (button1.pressed) then
+        bg = 0.5
+        bb = 0.5
+    end
+    love.graphics.setColor(br, bg, bb, a)
+    love.graphics.rectangle("fill", 0, height * 0.5, width, height * 0.5)
+
+    love.graphics.setColor(r, g, b, a)
+end
